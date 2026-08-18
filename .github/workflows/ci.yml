@@ -5,6 +5,18 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:        # 支持在 Actions 页面手动触发
+
+# 解决 actions/deploy-pages 写入主分支时的权限问题
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 防止同一个 workflow 的旧 run 还在排队时，新 push 又触发新 run 造成部署竞争
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -27,7 +39,7 @@ jobs:
         run: |
           pytest testcases -q --alluredir=allure-results
 
-      - name: 上传 Allure 原始数据（供报告步骤使用）
+      - name: 上传 Allure 原始数据
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -35,28 +47,44 @@ jobs:
           path: allure-results
           retention-days: 7
 
-      # 把 Allure 报告发布成可访问网页（GitHub Pages）
+  # ===== 单独一个 job 负责把 Allure 报告发布到 GitHub Pages =====
+  allure-report:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 allure-results 目录
+        run: mkdir -p allure-results
+
       - name: 下载 Allure 原始数据
-        if: always()
         uses: actions/download-artifact@v4
         with:
           name: allure-results
           path: allure-results
 
       - name: 安装 Allure 命令行
-        if: always()
         run: |
           sudo apt-get update
           sudo apt-get install -y allure
 
-      - name: 生成 Allure 报告
-        if: always()
+      - name: 生成 Allure HTML 报告
         run: |
           allure generate allure-results -o allure-report --clean
 
-      - name: 部署 Allure 报告到 GitHub Pages
-        if: always()
-        uses: peaceiris/actions-gh-pages@v4
+      - name: 配置 Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传 Pages 产物
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-report
+          path: allure-report
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
