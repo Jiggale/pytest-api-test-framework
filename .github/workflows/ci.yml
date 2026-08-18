@@ -71,7 +71,12 @@ jobs:
       - name: 安装 Allure 命令行
         run: |
           sudo apt-get update
-          sudo apt-get install -y allure
+          sudo apt-get install -y unzip
+          # 下载并安装 Allure 2.30.0（官方 release zip）
+          curl -o allure.zip -L https://github.com/allure-framework/allure2/releases/download/2.30.0/allure-2.30.0.zip
+          unzip allure.zip -d /opt/
+          sudo ln -sf /opt/allure-2.30.0/bin/allure /usr/local/bin/allure
+          allure --version
 
       - name: 生成 Allure HTML 报告
         run: |
