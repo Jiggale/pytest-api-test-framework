@@ -1,0 +1,62 @@
+name: API Test CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 运行 pytest 并生成 Allure 原始数据
+        run: |
+          pytest testcases -q --alluredir=allure-results
+
+      - name: 上传 Allure 原始数据（供报告步骤使用）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+          retention-days: 7
+
+      # 把 Allure 报告发布成可访问网页（GitHub Pages）
+      - name: 下载 Allure 原始数据
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: 安装 Allure 命令行
+        if: always()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y allure
+
+      - name: 生成 Allure 报告
+        if: always()
+        run: |
+          allure generate allure-results -o allure-report --clean
+
+      - name: 部署 Allure 报告到 GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report

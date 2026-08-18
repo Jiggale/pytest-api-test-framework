@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 测试产物（本地生成，CI 会重新生成）
+report/
+log/
+.pytest_cache/
+allure-results/
+allure-report/
+
+# 环境
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# 系统
+.DS_Store
+Thumbs.db
